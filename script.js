@@ -8,8 +8,10 @@ const DPI_CANVAS_HEIGHT = CANVAS_HEIGHT * 2;
 const CANVAS_VIEW_HEIGHT = DPI_CANVAS_HEIGHT - PADDING * 2;
 const CANVAS_VIEW_WIDTH = DPI_CANVAS_WIDTH;
 const ROWS_COUNT = 5;
+const DATE_COLUMNS_COUNT = 6;
 
 function chart(canvas, data) {
+  console.log(data);
   const ctx = canvas.getContext('2d');
   canvas.style.width = CANVAS_WIDTH + 'px';
   canvas.style.height = CANVAS_HEIGHT + 'px';
@@ -17,12 +19,44 @@ function chart(canvas, data) {
   canvas.height = DPI_CANVAS_HEIGHT;
 
   const [yMin, yMax] = computeBoundaries(data);
-  const textStep = (yMax - yMin) / ROWS_COUNT;
   const yRatio = CANVAS_VIEW_HEIGHT / (yMax - yMin);
   const xRatio = CANVAS_VIEW_WIDTH / (data.columns[0].length - 2);
 
-  // === y axis
+  const yData = data.columns.filter(col => data.types[col[0]] === 'line');
+  const xData = data.columns.filter(col => data.types[col[0]] !== 'line')[0];
+
+  // === Painting
+  drawYAxis(ctx, yMin, yMax);
+  drawXAxis(ctx, xData, xRatio);
+
+  yData.map(toCoords(xRatio, yRatio)).forEach((coords, i) => {
+    const color = data.colors[yData[i][0]];
+    drawLines(ctx, coords, { color });
+  })
+}
+
+chart(document.querySelector('#chart'), getChartData());
+
+function toCoords(xRatio, yRatio) {
+  return (col) => col.map((y, i) => [
+    Math.floor((i - 1) * xRatio),
+    Math.floor(DPI_CANVAS_HEIGHT - PADDING - y * yRatio)
+  ]).filter((_, i) => i !== 0);
+}
+
+function drawXAxis(ctx, xData, xRatio) {
+  ctx.beginPath();
+  const step = Math.round(xData.length / DATE_COLUMNS_COUNT);
+  for (let i = 1; i < xData.length; i += step) {
+    const text = toDate(xData[i]);
+    ctx.fillText(text, i * xRatio, DPI_CANVAS_HEIGHT - 10)
+  }
+  ctx.closePath();
+}
+
+function drawYAxis(ctx, yMin, yMax) {
   const step = CANVAS_VIEW_HEIGHT / ROWS_COUNT;
+  const textStep = (yMax - yMin) / ROWS_COUNT;
 
   ctx.beginPath();
   ctx.strokeStyle = '#bbb';
@@ -37,24 +71,7 @@ function chart(canvas, data) {
   }
   ctx.stroke();
   ctx.closePath();
-  // ===
-
-  data.columns.forEach(col => {
-    const name = col[0];
-    if (data.types[name] === 'line') {
-      const coords = col.map((y, i) => [
-        Math.floor((i - 1) * xRatio),
-        Math.floor(DPI_CANVAS_HEIGHT - PADDING - y * yRatio)
-      ])
-      coords.shift();
-
-      const color = data.colors[name];
-      drawLines(ctx, coords, { color });
-    }
-  });
 }
-
-chart(document.querySelector('#chart'), getChartData());
 
 function drawLines(ctx, coords, { color }) {
   ctx.beginPath();
@@ -71,24 +88,28 @@ function computeBoundaries({ columns, types }) {
   let min = null;
   let max = null;
 
-  console.log(types);
-  columns.forEach(column => {
-    if (types[column[0]] !== 'line') {
+  columns.forEach(col => {
+    if (types[col[0]] !== 'line') {
       return;
     }
 
-    if (typeof min !== 'number') min = column[1];
-    if (typeof max !== 'number') max = column[1];
+    if (typeof min !== 'number') min = col[1];
+    if (typeof max !== 'number') max = col[1];
 
-    if (min > column[1]) min = column[1];
-    if (max < column[1]) max = column[1];
+    if (min > col[1]) min = col[1];
+    if (max < col[1]) max = col[1];
 
-    for (let i = 2; i < column.length; i++) {
-      if (min > column[i]) min = column[i];
-      if (max < column[i]) max = column[i];
+    for (let i = 2; i < col.length; i++) {
+      if (min > col[i]) min = col[i];
+      if (max < col[i]) max = col[i];
     }
   });
 
-
   return [min, max];
+}
+
+function toDate(timestamp) {
+  const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Now', 'Dec'];
+  const date = new Date(timestamp);
+  return `${shortMonths[date.getMonth()]}, ${date.getDate()}`;
 }
