@@ -18,10 +18,14 @@ function chart(canvas, data) {
   canvas.width = DPI_CANVAS_WIDTH;
   canvas.height = DPI_CANVAS_HEIGHT;
 
+  function mousemoveHandler({ offsetX, offsetY }) {
+    console.log(clientX, offsetX, layerX);
+  }
+  canvas.addEventListener('mousemove', mousemoveHandler);
+
   const [yMin, yMax] = computeBoundaries(data);
   const yRatio = CANVAS_VIEW_HEIGHT / (yMax - yMin);
   const xRatio = CANVAS_VIEW_WIDTH / (data.columns[0].length - 2);
-
   const yData = data.columns.filter(col => data.types[col[0]] === 'line');
   const xData = data.columns.filter(col => data.types[col[0]] !== 'line')[0];
 
@@ -33,6 +37,12 @@ function chart(canvas, data) {
     const color = data.colors[yData[i][0]];
     drawLines(ctx, coords, { color });
   })
+  // ===
+  return {
+    destroy() {
+      canvas.removeEventListener('mousemove', mousemoveHandler);
+    }
+  }
 }
 
 chart(document.querySelector('#chart'), getChartData());
